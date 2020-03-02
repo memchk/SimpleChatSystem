@@ -1,0 +1,42 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[letterpaper, margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{tabularx}
+\usepackage{caption}
+\usepackage{graphicx}
+\usepackage{rotating}
+\usepackage{tikz}
+\usepackage{float}
+
+\setlength{\parindent}{0em}
+\renewcommand{\arraystretch}{1.25}
+% Title Block
+\title{CS4390.502: Simple Chat System (SCS)}
+\author{Carson Page CMP170130}
+\date{Spring 2020}
+\begin{document}
+\begin{titlepage}
+    \maketitle
+\end{titlepage}
+\tableofcontents
+\cleardoublepage
+\newpage
+
+\setlength{\parskip}{0.5em}
+
+\section{Protocol}
+\subsection{Overview}
+SCS is a networked chat protocol, with a classic client-server architecture. SCS
+takes heavy insperation from pre-existing work like IRC. As this is an academic
+exercise, most of the protocol SHALL be novel, but any references will be
+properly included within this document.
+The action words in this section of the document conform to
+\href{https://tools.ietf.org/html/rfc2119}{RFC2119}.
+\subsection{Data Types}
+Data types conform to their represenation and symanitcs as defined in C99 unless
+otherwise specified here.
+\paragraph[]{Strings} SHALL be composed of a length field, then the data in UTF-8 format. The
+length is 4 bytes. This type should more than accomodate messaging.
+
+\end{document}
