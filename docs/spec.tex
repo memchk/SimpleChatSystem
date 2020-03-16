@@ -1,13 +1,21 @@
 \documentclass[12pt]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[letterpaper, margin=1in]{geometry}
-\usepackage{hyperref}
-\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage[
+    colorlinks,
+    linkcolor={black!80!black},
+    citecolor={blue!50!black},
+    urlcolor={blue!80!black}
+]{hyperref}
+\usepackage{bytefield}
+% \usepackage{tabularx}
 \usepackage{caption}
-\usepackage{graphicx}
-\usepackage{rotating}
+% \usepackage{graphicx}
+% \usepackage{rotating}
 \usepackage{tikz}
 \usepackage{float}
+\usepackage{titlesec}
 
 \setlength{\parindent}{0em}
 \renewcommand{\arraystretch}{1.25}
@@ -18,6 +26,8 @@
 \begin{document}
 \begin{titlepage}
     \maketitle
+    This specification is currently a \textbf{DRAFT}. The protocol format,
+    semantics, and specification MAY change without incrementing the version number.
 \end{titlepage}
 \tableofcontents
 \cleardoublepage
@@ -33,10 +43,255 @@ exercise, most of the protocol SHALL be novel, but any references will be
 properly included within this document.
 The action words in this section of the document conform to
 \href{https://tools.ietf.org/html/rfc2119}{RFC2119}.
+
+The primary structure is a frame, consisting of a 32 bit length, 16 bit msg
+type, and 16 bit Frame Check Sequence (FCS). This is a 8 byte header, and allows for a flexible message
+format. The length of a packet MUST be less than 65536 bytes, unless an
+extension specifies otherwise. The first bit of the length field indicates
+if the packet is the last one in a sequence.
+
+\subsection{Packet Framing}
+The packet is framed as shown below. The area marked payload is opcode
+dependent, and MUST match that opcodes definition.
+
+\bigskip
+\begin{bytefield}[bitwidth=1.1em]{32}
+    \bitheader{0-31} \\
+    \begin{rightwordgroup}{Header}
+        \bitbox{1}{\rotatebox{270}{\small FIN}} &
+        \bitbox{3}{RSVD} & \bitbox{28}{Length} \\
+        \bitbox{8}{Version} & \bitbox{8}{OpCode} & \bitbox{16}{FCS}
+    \end{rightwordgroup} \\
+    \wordbox[lr]{1}{Message} \\
+    \skippedwords \\
+    \wordbox[lrb]{1}{}
+\end{bytefield}
+\subsection{Version}
+The Version field MUST equal 1 (0x0001). Any changes to the SCS protocol that
+break backwards compatibility with older implementations that adhere to this
+specification MUST have a new version specified.
+
+If an implementation receives a
+frame with a version it does not understand, it MUST reply with a
+INVALID\_VERSION message and close the connection.
+\subsection{FCS}
+The FCS is the CRC-16 CCITT, polynomial 0x8810 (Koopman)
+\href{https://users.ece.cmu.edu/~koopman/crc/c16/0x8810.txt}{[spec]}.
+The FCS includes the data in the header and body, except for itself. 
+The FCS SHALL be excluded from the calculation entirely. The checksum MUST process the data least significant
+bit first, in the order the bytes are received on the wire. The FCS SHALL be
+sent on wire in little endian format. 
+
+If an implementation receives a frame with
+a bad FCS, it MUST respond with a INVALID\_FCS message and close the connection. This
+choice is due to the academic requirement of the FCS, and in all realistic
+scenarios the message will be correct due to the underlying stacks abilities.
+
+In future versions of this protocol, this field may be replaced with something
+more useful.
+
+\subsection{Valid Entities}
+An entity is an object with an identifier capable of sending or receiving
+messages. This documents defines channels and users as these entities.
+Implementations MAY limit the length of the identifiers used, but MUST NOT limit
+it to less than 16 characters.
+\subsubsection{User}
+A user is an entity that is identified by a username, and represents a singular
+actor in SCS. This could be a human user, but also may be the server itself,
+various server provided services, or bots. To distinguish users, their username
+MUST be prepended on wire with an ASCII dollar sign character (\$). This MAY be
+stripped when shown to the user, but must be consistently done so.
+\subsubsection{Channel}
+A Channels is an entity that is identified by a channel name, and represents a broadcast
+channel in SCS. Users MAY join a channel, or be placed in a channel by the
+server. To distinguish channels, their channel name MUST be prepended on wire
+with an ASCII hash character (\#). This MAY be
+stripped when shown to the user, but must be consistently done so. 
+
+\subsection{Messages}
+This section enumerates the valid messages of SCS. This document reserves the
+first half of the opcode range for the messages defined in this document and for
+any official extensions. The top half of the opcode range MAY be used for
+third-party or unofficial extensions.
+
+If a message has optional fields, messages defined in this document or future
+extensions MUST place those fields after any required fields to help with easier
+processing. If a message has one (1) optional field, it may be implicit,
+otherwise the message SHOULD have some form of header or delimiter showing which
+message fields are included, or have the included fields be unambiguously
+specified through the messages semantics. 
+
+Any implementation of SCS that receives a
+message with an unknown code MUST respond with a NACK message with optional error
+text, then close the connection. Any implementation of SCS that receives an
+improperly formatted message MUST respond with a NACK message with optional error text,
+then close the connection. This means error checking SHOULD be done locally
+before transmitting the message, and bad messages are considered to be hostile.
+
+\subsubsection{Acknowledge (ACK)}
+The ACK message contains an opcode of 0x00.
+
+This message contains no additional fields.
+
+\subsubsection{Negative Acknowledge (NACK)}
+The NACK message contains an opcode of 0x01.
+
+The client SHOULD display the included error description if available.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & Human readable error description (optional) \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Invalid FCS (INVALID\_FCS)}
+The INVALID\_FCS message contains an opcode of 0x02.
+
+This message contains no additional fields.
+
+\subsubsection{Invalid Version (INVALID\_VERISON)}
+The INVALID\_VERSION message contains an opcode of 0x03.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & Integer & Supported version \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Hello Message (HELO)}
+The HELO message contains an opcode of 0x04.
+
+This message SHOULD be sent by any client on connection with a server. A server
+MAY terminate a clients connection after a reasonable amount of time if this
+message is not sent.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & Client Username \\
+    2 & String & Initial Channel (Optional) \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Join Channel (JOIN\_CHAN)}
+The JOIN\_CHAN message contains an opcode of 0x05.
+
+This message indicates to the server that a user wants access to a channel. This
+may require a channel password. If a password is required and is either not
+provided or incorrect, the server MUST respond with a NOT\_AUTH message. If
+successful, a server SHOULD respond with an ACK message and begin streaming
+channel messages to the client. If any other failure occurs, the server SHOULD
+respond with a NACK message.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & Channel Name \\
+    2 & String & Channel Password (Optional) \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Leave Channel (LEAVE\_CHAN)}
+The LEAVE\_CHAN message contains an opcode of 0x06.
+
+This message states a client is requesting to leave a channel. If the operation
+is successful the server SHOULD send an ACK message, and any streams of channel messages
+involving that client and message tuple MUST be terminated. If the operation
+fails the server SHOULD send a NACK message.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & Channel Name \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Not Authorized (NOT\_AUTH)}
+The NOT\_AUTH message contains an opcode of 0x07.
+
+This message SHALL be sent from server to client in response to any operation
+from the client where the client has improper authorization to manipulate an
+entity. The entity name MUST be given, and no other information must be given to
+prevent information leakage. A server implementation MAY log the reason for
+failure in a server log, or some out-of-band format like an admin channel for
+troubleshooting and intrusion detection.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & Entity Name \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{Message (MSG)}
+The NOT\_AUTH message contains an opcode of 0x08.
+
+This message represents a generic text message sent from one entity to another.
+
+The message will include a single byte MSG\_TYPE field. A user to message MUST
+set this field to 0x01. A user to channel message MUST set this field to 0x02. A
+channel to user message MUST set this field to 0x03. Remaining values are
+reserved unless further specified. If a implementation receives an invalid
+MSG\_TYPE, it MUST respond with a NACK and close the connection.
+
+In the case of user to user message, the FROM and TO fields will match the
+sender and recipient exactly, and the CHANNEL field will not be included. 
+
+In the case of user to channel messaging, the FROM will include the sending user, and the TO
+and CHANNEL names MUST include a channel name and MUST be the same. When the
+channel relays the message, it will rewrite the TO field to the subscriber of
+the channel, while keeping the FROM and CHANNEL the same.
+
+The server MAY perform verification that the sender entity matches the client
+who sent it. The server MAY impose limits of the message content. If these
+limits are violated, the server MUST reply with a NACK message with an
+appropriate message.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & Byte & Message Type (MSG\_TYPE) \\
+    2 & String & FROM \\
+    3 & String & TO \\
+    4 & String & CHANNEL (MSG\_TYPE 0x02 0x03) \\
+    5 & String & Message Content \\
+    \hline
+\end{tabular}
+\end{table}
+
 \subsection{Data Types}
-Data types conform to their represenation and symanitcs as defined in C99 unless
-otherwise specified here.
-\paragraph[]{Strings} SHALL be composed of a length field, then the data in UTF-8 format. The
-length is 4 bytes. This type should more than accomodate messaging.
+Data types conform to their representation and semantics as defined in C99 unless
+otherwise specified here. The on wire representation of the data will be
+little-endian unless otherwise specified.
+\paragraph{Integers} Integers SHALL be encoded in little-endian format, LSB first.
+\paragraph{String} Strings SHALL be composed of a length field, then the data in UTF-8 format. The
+length field MUST be 4 bytes.
+
+\section{Operation}
+This section of the specification will prescribe the required semantics of an
+SCS implementation in terms of state and actions performed on the server or
+client.
 
 \end{document}
