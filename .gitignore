@@ -3,3 +3,5 @@ trace
 .vscode/settings.json
 docs/*
 !docs/*.tex
+bin
+build
