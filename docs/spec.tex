@@ -26,8 +26,6 @@
 \begin{document}
 \begin{titlepage}
     \maketitle
-    This specification is currently a \textbf{DRAFT}. The protocol format,
-    semantics, and specification MAY change without incrementing the version number.
 \end{titlepage}
 \tableofcontents
 \cleardoublepage
@@ -36,10 +34,15 @@
 \setlength{\parskip}{0.5em}
 
 \section{Protocol}
+This specification is currently a \textbf{DRAFT}. The protocol format,
+semantics, and specification MAY change without incrementing the version number.
+
 \subsection{Overview}
 SCS is a networked chat protocol, with a classic client-server architecture. SCS
-takes heavy inspiration from pre-existing work like IRC. As this is an academic
-exercise, most of the protocol SHALL be novel, but any references will be
+takes inspiration from pre-existing work like IRC and Web Sockets for the
+structure of this document and specification of semantics. However, the
+protocol design is my own. As this is an academic
+exercise, most of the protocol is novel, but any references will be
 properly included within this document.
 The action words in this section of the document conform to
 \href{https://tools.ietf.org/html/rfc2119}{RFC2119}.
@@ -75,7 +78,7 @@ If an implementation receives a
 frame with a version it does not understand, it MUST reply with a
 INVALID\_VERSION message and close the connection.
 \subsection{FCS}
-The FCS is the CRC-16 CCITT, polynomial 0x8810 (Koopman)
+The FCS is a Cyclic Redundancy Check, 16-bit, polynomial 0x8810 (Koopman)
 \href{https://users.ece.cmu.edu/~koopman/crc/c16/0x8810.txt}{[spec]}.
 The FCS includes the data in the header and body, except for itself. 
 The FCS SHALL be excluded from the calculation entirely. The checksum MUST process the data least significant
@@ -281,6 +284,56 @@ appropriate message.
 \end{tabular}
 \end{table}
 
+\subsubsection{File Open (FILE\_Open)}
+The FILE\_TRANS message contains an opcode of 0x09.
+
+This message announces to the receiving entity that a file transfer session is
+being requested by the FROM entity. A entity MUST
+NOT attempt a file transfer to anything other than a user. If this is attempted,
+the server MUST respond with a NACK packet and close the connection. If the
+receiving entity accepts the file transfer, it must reply with an ACK, otherwise
+an NACK message.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & FROM \\
+    2 & String & TO \\
+    3 & String & Filename \\
+    4 & Hash & File Hash \\
+    \hline
+\end{tabular}
+\end{table}
+
+\subsubsection{File Transfer (FILE\_TRANS)}
+The FILE\_TRANS message contains an opcode of 0x0A.
+
+This message represents a file transfer from one user to another. A entity MUST
+NOT attempt a file transfer to anything other than a user. If this is attempted,
+the server MUST respond with a NACK packet and close the connection. This
+message MUST be sent after a FILE\_OPEN message, and only if a ACK is
+replied with first. If this sequence is not followed, the message MAY be discarded.
+
+Once the recipient is done receiving the message, it MUST verify the hash and
+either reply with an ACK if the transfer was successful, or NACK if there was an
+interruption or corruption.
+
+\begin{table}[ht]
+\begin{tabular} {|l|l|l|}
+    \hline 
+    Field \# & Type & Description \\
+    \hline
+    1 & String & FROM \\
+    2 & String & TO \\
+    3 & String & Filename \\
+    4 & Hash & File Hash \\
+    4 & String & File Content \\
+    \hline
+\end{tabular}
+\end{table}
+
 \subsection{Data Types}
 Data types conform to their representation and semantics as defined in C99 unless
 otherwise specified here. The on wire representation of the data will be
@@ -288,10 +341,6 @@ little-endian unless otherwise specified.
 \paragraph{Integers} Integers SHALL be encoded in little-endian format, LSB first.
 \paragraph{String} Strings SHALL be composed of a length field, then the data in UTF-8 format. The
 length field MUST be 4 bytes.
-
-\section{Operation}
-This section of the specification will prescribe the required semantics of an
-SCS implementation in terms of state and actions performed on the server or
-client.
-
+\paragraph{Hash} This is a cryptographic hash following the SHA-256 format. The
+hash should be sent with little-endian byte ordering.
 \end{document}
