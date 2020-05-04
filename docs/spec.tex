@@ -47,11 +47,9 @@ properly included within this document.
 The action words in this section of the document conform to
 \href{https://tools.ietf.org/html/rfc2119}{RFC2119}.
 
-The primary structure is a frame, consisting of a 32 bit length, 16 bit msg
+The primary structure is a frame, consisting of a 32 bit reserved section, 8 bit version, 8 bit msg
 type, and 16 bit Frame Check Sequence (FCS). This is a 8 byte header, and allows for a flexible message
-format. The length of a packet MUST be less than 65536 bytes, unless an
-extension specifies otherwise. The first bit of the length field indicates
-if the packet is the last one in a sequence.
+format.
 
 \subsection{Packet Framing}
 The packet is framed as shown below. The area marked payload is opcode
@@ -61,8 +59,7 @@ dependent, and MUST match that opcodes definition.
 \begin{bytefield}[bitwidth=1.1em]{32}
     \bitheader{0-31} \\
     \begin{rightwordgroup}{Header}
-        \bitbox{1}{\rotatebox{270}{\small FIN}} &
-        \bitbox{3}{RSVD} & \bitbox{28}{Length} \\
+        \bitbox{32}{RSVD} \\
         \bitbox{8}{Version} & \bitbox{8}{OpCode} & \bitbox{16}{FCS}
     \end{rightwordgroup} \\
     \wordbox[lr]{1}{Message} \\

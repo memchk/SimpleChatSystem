@@ -2,6 +2,7 @@
 #include <cstring>
 #include <gsl/gsl>
 #include <string>
+#include <vector>
 
 #include "Serialization.hpp"
 
@@ -38,10 +39,22 @@ constexpr uint16_t CalculateCRC16CCITT(ser::const_span data) {
   return crc;
 }
 
+// template <typename T>
+// class Frame {
+//   private:
+//     T packet_;
+//   public:
+//     void WriteToStream(std::ostream &os) const
+//     {
+//       std::vector<unsigned char> packet_data;
+//       packet_data.resize()
+//     }
+// };
+
 struct Packet {
  public:
-  virtual bool ReadFromSpan(ser::const_span &data) = 0;
-  virtual bool Serialize(ser::span &data) const = 0;
+  virtual ser::result ReadFromSpan(ser::const_span &data) = 0;
+  virtual ser::result Serialize(ser::span &data) const = 0;
   virtual unsigned char opcode() const = 0;
 };
 
@@ -51,13 +64,13 @@ struct HELOPacket final : public Packet {
   HELOPacket(std::string user_name, std::string init_channel = "")
       : user_name(user_name), init_channel(init_channel) {}
 
-  bool ReadFromSpan(ser::const_span &data) override {
+  ser::result ReadFromSpan(ser::const_span &data) override {
     ser::optional opt_init_channel = init_channel;
-    return ser::DeserializeElements(data, user_name, opt_init_channel) >= 0;
+    return ser::DeserializeElements(data, user_name, opt_init_channel);
   }
 
-  bool Serialize(ser::span &data) const override {
-    return ser::SerializeElements(data, user_name, init_channel) > 0;
+  ser::result Serialize(ser::span &data) const override {
+    return ser::SerializeElements(data, user_name, init_channel);
   }
 
   unsigned char opcode() const override { return 0x08; }
@@ -66,11 +79,10 @@ struct HELOPacket final : public Packet {
 namespace {
 template <unsigned char OpCode>
 class NoDataPacketImpl final : public Packet {
-  bool ReadFromSpan(gsl::span<unsigned char> _data) override { return true; };
-  bool Serialize(gsl::span<unsigned char> &data) const override {
-    return true;
+  ser::result ReadFromSpan(gsl::span<unsigned char> _data) override { return {true, 0}; };
+  ser::result Serialize(gsl::span<unsigned char> &data) const override {
+    return {true, 0};
   };
-
   unsigned char opcode() const override { return OpCode; }
 };
 }  // namespace

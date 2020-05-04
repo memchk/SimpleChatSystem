@@ -14,6 +14,18 @@ using namespace scs::shared;
 
 int main(int argc, char const *argv[])
 {
-    packet::HELOPacket packet("memchk");
+    unsigned char buf[3];
+    ser::span span_buf = buf;
+
+    packet::HELOPacket packet("memchk", "#imepic");
+    auto [ok, len] = packet.Serialize(span_buf);
+
+    if(ok) {
+        for (auto &i : span_buf.first(len)) {
+            std::cout << std::hex << (int)i << " ";
+        }
+    } else {
+        std::cout << "failure!";
+    }
     std::cout << std::endl;
 }   
